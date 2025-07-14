@@ -4,7 +4,7 @@ Command-launcher powered by **fzf** and YAML.
 Loads every `*.yml` in the current directory, shows them in a grouped menu, and runs the selected command with optional placeholder substitution.
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Mgldvd/ww/refs/heads/master/.img/ww.git" alt="ww" width="100%">
+  <img src="https://raw.githubusercontent.com/Mgldvd/ww/refs/heads/master/.img/ww.gif" alt="ww" width="100%">
 </div>
 
 ## Prerequisites
