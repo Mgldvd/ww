@@ -1,61 +1,99 @@
 #!/usr/bin/env bash
-# wiwi: fzf YAML launcher with colored titles for each executed command
+# wiwi: YAML-powered fzf launcher, now modularized for easy debugging
 
 set -euo pipefail
 
-for dep in fzf yq base64; do
-    command -v "$dep" &>/dev/null || { echo "$dep not installed."; exit 1; }
-done
+declare -a yaml_files groups names cmds_b64 descs uniq_groups items
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-search_dirs=("$PWD" "$PWD/commands.d" "$script_dir" "$script_dir/commands.d" "$HOME/.config/ww")
-
-yaml_files=()
-for d in "${search_dirs[@]}"; do
-    for f in "$d"/*.yml; do
-        [ -e "$f" ] && yaml_files+=("$f")
+check_deps() {
+    for dep in fzf yq base64; do
+        command -v "$dep" &>/dev/null || { echo "$dep not installed."; exit 1; }
     done
-done
-[ ${#yaml_files[@]} -eq 0 ] && { echo "No YAML files found."; exit 1; }
+}
 
-declare -a groups names cmds_b64 descs
-for file in "${yaml_files[@]}"; do
-    while IFS=$'\t' read -r g n c64 d; do
-        groups+=("$g")
-        names+=("$n")
-        cmds_b64+=("$c64")
-        descs+=("$d")
-    done < <(yq -r '.commands[] | [.group,.name,(.command|@base64),.description] | @tsv' "$file")
-done
-
-mapfile -t uniq_groups < <(printf '%s\n' "${groups[@]}" | sort -u)
-name_w=$(printf '%s\n' "${names[@]}" | awk '{print length}' | sort -nr | head -1)
-
-items=()
-for grp in "${uniq_groups[@]}"; do
-    items+=("$(printf '\e[1;35m%s:\e[0m' "$grp")")
-    for i in "${!groups[@]}"; do
-        if [ "${groups[$i]}" = "$grp" ]; then
-            disp_cmd="$(printf '%s' "$(echo "${cmds_b64[$i]}" | base64 --decode)" | tr '\n' '; ')"
-            items+=("$(printf '    %-*s │ \e[97m%s\e[0m\t%s\t%s' "$name_w" "${names[$i]}" "$disp_cmd" "${cmds_b64[$i]}" "${descs[$i]}")")
-        fi
+gather_yaml_files() {
+    local script_dir search_dirs f d real
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    search_dirs=("$PWD" "$PWD/commands.d" "$script_dir" "$script_dir/commands.d" "$HOME/.config/ww")
+    for d in "${search_dirs[@]}"; do
+        for f in "$d"/*.yml; do
+            [ -e "$f" ] && yaml_files+=("$f")
+        done
     done
-    items+=("")
-done
+    [ ${#yaml_files[@]} -eq 0 ] && { echo "No YAML files found."; exit 1; }
+    declare -A seen_path
+    for f in "${yaml_files[@]}"; do
+        real="$(readlink -f "$f")"
+        [[ -z "${seen_path[$real]+x}" ]] && { seen_path["$real"]=1; uniq_files+=("$f"); }
+    done
+    yaml_files=("${uniq_files[@]}")
+}
 
-selection="$(printf '%s\n' "${items[@]}" | fzf --ansi --prompt="Select: " --delimiter=$'\t' --with-nth=1 --preview-window=down:3:wrap --preview='c=$(echo {} | cut -f2); d=$(echo {} | cut -f3); [ -n "$c" ] && printf "%s\n\n%s\n"  | base64 -d)" "$d"')"
-cmd="$(echo "$selection" | cut -f2 | base64 --decode)"
-[ -z "$cmd" ] && exit 0
+parse_yaml() {
+    local file g n c64 d key
+    declare -A seen_cmd
+    for file in "${yaml_files[@]}"; do
+        while IFS=$'\t' read -r g n c64 d; do
+            key="${g}__${n}"
+            [[ -n "${seen_cmd[$key]+x}" ]] && continue
+            seen_cmd["$key"]=1
+            groups+=("$g")
+            names+=("$n")
+            cmds_b64+=("$c64")
+            descs+=("$d")
+        done < <(yq -r '.commands[] | [.group,.name,(.command|@base64),.description] | @tsv' "$file")
+    done
+    mapfile -t uniq_groups < <(printf '%s\n' "${groups[@]}" | sort -u)
+}
 
-while [[ "$cmd" =~ \{\{([A-Za-z0-9_]+)\}\} ]]; do
-    placeholder="${BASH_REMATCH[1]}"
-    read -rp "Enter value for $placeholder: " value
-    cmd="${cmd//\{\{$placeholder\}\}/$value}"
-done
+build_items() {
+    local name_w grp i disp_cmd
+    name_w=$(printf '%s\n' "${names[@]}" | awk '{print length}' | sort -nr | head -1)
+    for grp in "${uniq_groups[@]}"; do
+        items+=("$(printf '\e[1;35m%s:\e[0m\t\t' "$grp")")
+        for i in "${!groups[@]}"; do
+            [[ "${groups[$i]}" != "$grp" ]] && continue
+            disp_cmd=$(echo "${cmds_b64[$i]}" | base64 -d | tr '\n' '; ')
+            items+=("$(printf '    %-*s │ \e[97m%s\e[0m\t%s\t%s' \
+                "$name_w" "${names[$i]}" "$disp_cmd" "${cmds_b64[$i]}" "${descs[$i]}")")
+        done
+        items+=("")
+    done
+}
 
-IFS=$'\n'
-while read -r line; do
-    [[ -z "$line" ]] && continue
-    echo -e "\e[32m$line\e[0m"
-    eval "$line"
-done <<< "$cmd"
+show_menu() {
+    printf '%s\n' "${items[@]}" | \
+        fzf --ansi \
+            --prompt="Select: " \
+            --delimiter=$'\t' \
+            --with-nth=1 \
+            --preview-window=down:3:wrap \
+            --preview='d=$(echo {} | cut -f3); [ -n "$d" ] && printf "%s\n" "$d"'
+}
+
+run_command() {
+    local cmd ph val line
+    cmd=$(echo "$1" | cut -f2 | base64 -d 2>/dev/null || true)
+    [ -z "$cmd" ] && exit 0
+    while [[ $cmd =~ \{\{([A-Za-z0-9_]+)\}\} ]]; do
+        ph="${BASH_REMATCH[1]}"
+        read -rp "Enter value for $ph: " val
+        cmd="${cmd//\{\{$ph\}\}/$val}"
+    done
+    IFS=$'\n'
+    while read -r line; do
+        [[ -z $line ]] && continue
+        echo -e "\n\e[32m ⯀ $line\e[0m\n"
+        eval "$line"
+    done <<< "$cmd"
+}
+
+main() {
+    check_deps
+    gather_yaml_files
+    parse_yaml
+    build_items
+    run_command "$(show_menu)"
+}
+
+main "$@"
