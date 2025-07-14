@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# wiwi: YAML-powered fzf launcher, now modularized for easy debugging
+# wiwi: YAML-powered fzf launcher (modular, no duplicate/unbound vars)
 
 set -euo pipefail
 
-declare -a yaml_files groups names cmds_b64 descs uniq_groups items
+declare -a yaml_files uniq_files groups names cmds_b64 descs uniq_groups items
 
 check_deps() {
     for dep in fzf yq base64; do
@@ -12,7 +12,9 @@ check_deps() {
 }
 
 gather_yaml_files() {
-    local script_dir search_dirs f d real
+    yaml_files=()
+    uniq_files=()
+    local script_dir search_dirs d f real
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     search_dirs=("$PWD" "$PWD/commands.d" "$script_dir" "$script_dir/commands.d" "$HOME/.config/ww")
     for d in "${search_dirs[@]}"; do
@@ -24,18 +26,22 @@ gather_yaml_files() {
     declare -A seen_path
     for f in "${yaml_files[@]}"; do
         real="$(readlink -f "$f")"
-        [[ -z "${seen_path[$real]+x}" ]] && { seen_path["$real"]=1; uniq_files+=("$f"); }
+        if [[ -z ${seen_path[$real]+x} ]]; then
+            seen_path["$real"]=1
+            uniq_files+=("$f")
+        fi
     done
     yaml_files=("${uniq_files[@]}")
 }
 
 parse_yaml() {
+    groups=() names=() cmds_b64=() descs=()
     local file g n c64 d key
     declare -A seen_cmd
     for file in "${yaml_files[@]}"; do
         while IFS=$'\t' read -r g n c64 d; do
             key="${g}__${n}"
-            [[ -n "${seen_cmd[$key]+x}" ]] && continue
+            [[ -n ${seen_cmd[$key]+x} ]] && continue
             seen_cmd["$key"]=1
             groups+=("$g")
             names+=("$n")
@@ -47,12 +53,13 @@ parse_yaml() {
 }
 
 build_items() {
-    local name_w grp i disp_cmd
+    items=()
+    local grp i name_w disp_cmd
     name_w=$(printf '%s\n' "${names[@]}" | awk '{print length}' | sort -nr | head -1)
     for grp in "${uniq_groups[@]}"; do
         items+=("$(printf '\e[1;35m%s:\e[0m\t\t' "$grp")")
         for i in "${!groups[@]}"; do
-            [[ "${groups[$i]}" != "$grp" ]] && continue
+            [[ ${groups[$i]} != "$grp" ]] && continue
             disp_cmd=$(echo "${cmds_b64[$i]}" | base64 -d | tr '\n' '; ')
             items+=("$(printf '    %-*s │ \e[97m%s\e[0m\t%s\t%s' \
                 "$name_w" "${names[$i]}" "$disp_cmd" "${cmds_b64[$i]}" "${descs[$i]}")")
@@ -83,7 +90,7 @@ run_command() {
     IFS=$'\n'
     while read -r line; do
         [[ -z $line ]] && continue
-        echo -e "\n\e[32m ⯀ $line\e[0m\n"
+        echo -e "\n\e[32m ⬥ $line\e[0m\n"
         eval "$line"
     done <<< "$cmd"
 }

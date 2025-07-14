@@ -12,7 +12,7 @@ Loads every `*.yml` in the current directory, shows them in a grouped menu, and 
 ## Install
 
 ```bash
-curl -sSf https://raw.githubusercontent.com/Mgldvd/ww/main/install.sh | bash
+curl -sSf https://raw.githubusercontent.com/Mgldvd/ww/refs/heads/master/install.sh | bash
 ```
 
 ## Play wiout install
