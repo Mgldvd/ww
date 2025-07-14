@@ -15,12 +15,14 @@ Loads every `*.yml` in the current directory, shows them in a grouped menu, and 
 curl -sSf https://raw.githubusercontent.com/Mgldvd/ww/refs/heads/master/install.sh | bash
 ```
 
-## Play wiout install
+## Play without install
+
+You can try `ww` without installing it by running the following commands:
 
 ```bash
-git clone https://github.com/yourname/ww.git
+git clone https://github.com/Mgldvd/ww.git
 cd ww
-sudo ./ww
+./ww
 ```
 
 ## Usage
