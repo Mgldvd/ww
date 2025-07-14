@@ -1,0 +1,25 @@
+commands:
+  - group: System
+    name: list all
+    command: ls -la
+    description: List directory contents
+
+  - group: System
+    name: date
+    command: date
+    description: Show current date and time
+
+  - group: User
+    name: whoami
+    command: whoami
+    description: Display current user
+
+  - group: lock
+    name: lock file
+    command: sudo chattr +i {{file}}
+    description: Prevent a file from being modified or deleted by locking it
+
+  - group: lock
+    name: unlock file
+    command: sudo chattr -i {{file}}
+    description: Allow a previously locked file to be modified or deleted by unlocking it

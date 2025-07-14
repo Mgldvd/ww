@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# wiwi: fzf YAML launcher with colored titles for each executed command
+
+set -euo pipefail
+
+for dep in fzf yq base64; do
+    command -v "$dep" &>/dev/null || { echo "$dep not installed."; exit 1; }
+done
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+search_dirs=("$PWD" "$PWD/commands.d" "$script_dir" "$script_dir/commands.d" "$HOME/.config/ww")
+
+yaml_files=()
+for d in "${search_dirs[@]}"; do
+    for f in "$d"/*.yml; do
+        [ -e "$f" ] && yaml_files+=("$f")
+    done
+done
+[ ${#yaml_files[@]} -eq 0 ] && { echo "No YAML files found."; exit 1; }
+
+declare -a groups names cmds_b64 descs
+for file in "${yaml_files[@]}"; do
+    while IFS=$'\t' read -r g n c64 d; do
+        groups+=("$g")
+        names+=("$n")
+        cmds_b64+=("$c64")
+        descs+=("$d")
+    done < <(yq -r '.commands[] | [.group,.name,(.command|@base64),.description] | @tsv' "$file")
+done
+
+mapfile -t uniq_groups < <(printf '%s\n' "${groups[@]}" | sort -u)
+name_w=$(printf '%s\n' "${names[@]}" | awk '{print length}' | sort -nr | head -1)
+
+items=()
+for grp in "${uniq_groups[@]}"; do
+    items+=("$(printf '\e[1;35m%s:\e[0m' "$grp")")
+    for i in "${!groups[@]}"; do
+        if [ "${groups[$i]}" = "$grp" ]; then
+            disp_cmd="$(printf '%s' "$(echo "${cmds_b64[$i]}" | base64 --decode)" | tr '\n' '; ')"
+            items+=("$(printf '    %-*s │ \e[97m%s\e[0m\t%s\t%s' "$name_w" "${names[$i]}" "$disp_cmd" "${cmds_b64[$i]}" "${descs[$i]}")")
+        fi
+    done
+    items+=("")
+done
+
+selection="$(printf '%s\n' "${items[@]}" | fzf --ansi --prompt="Select: " --delimiter=$'\t' --with-nth=1 --preview-window=down:3:wrap --preview='c=$(echo {} | cut -f2); d=$(echo {} | cut -f3); [ -n "$c" ] && printf "%s\n\n%s\n" "$(echo "$c" | base64 -d)" "$d"')"
+cmd="$(echo "$selection" | cut -f2 | base64 --decode)"
+[ -z "$cmd" ] && exit 0
+
+while [[ "$cmd" =~ \{\{([A-Za-z0-9_]+)\}\} ]]; do
+    placeholder="${BASH_REMATCH[1]}"
+    read -rp "Enter value for $placeholder: " value
+    cmd="${cmd//\{\{$placeholder\}\}/$value}"
+done
+
+IFS=$'\n'
+while read -r line; do
+    [[ -z "$line" ]] && continue
+    echo -e "\e[32m$line\e[0m"
+    eval "$line"
+done <<< "$cmd"

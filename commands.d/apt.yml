@@ -1,0 +1,72 @@
+commands:
+  - group: apt
+    name: update upgrade
+    command: |
+      sudo apt update
+      sudo apt upgrade -y
+    description: Upgrade installed packages
+
+  - group: apt
+    name: update
+    command: sudo apt update
+    description: Update package lists
+
+  - group: apt
+    name: upgrade
+    command: sudo apt upgrade -y
+    description: Upgrade installed packages
+
+  - group: apt
+    name: install
+    command: sudo apt install {{package_name}} -y
+    description: Install a package
+
+  - group: apt
+    name: remove
+    command: sudo apt remove {{package_name}} -y
+    description: Remove a package
+
+  - group: apt
+    name: search
+    command: apt search {{search_term}}
+    description: Search for a package
+
+  - group: apt
+    name: show
+    command: apt show {{package_name}}
+    description: Show package details
+
+  - group: apt
+    name: autoremove
+    command: sudo apt autoremove -y
+    description: Remove unused packages
+
+  - group: apt
+    name: clean
+    command: sudo apt clean
+    description: Clean up local repository of retrieved package files
+
+  - group: apt
+    name: clean remove
+    command: sudo apt autoremove -y && sudo apt clean
+    description: Remove unused packages
+
+  - group: apt
+    name: full-upgrade
+    command: sudo apt full-upgrade -y
+    description: Upgrade packages, handling dependencies intelligently
+
+  - group: apt
+    name: dist-upgrade
+    command: sudo apt dist-upgrade -y
+    description: Upgrade packages, handling dependencies intelligently with distribution changes
+
+  - group: apt
+    name: list
+    command: apt list --installed
+    description: List installed packages
+
+  - group: apt
+    name: purge
+    command: sudo apt purge {{package_name}} -y
+    description: Remove a package and its configuration files
