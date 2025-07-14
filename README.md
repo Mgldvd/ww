@@ -52,11 +52,12 @@ Select a command, fill in prompted placeholders, and it executes.
 Updating commands
 
 Just edit or add new .yml files; the next ww run picks them up automatically.
-Uninstall
+
+## Uninstall
 
 ```bash
 sudo rm -f /usr/local/bin/ww
-sudo rm -rf /usr/local/share/ww
+sudo rm -rf ~/.config/ww
 ```
 
 ## License
