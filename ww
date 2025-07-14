@@ -43,7 +43,7 @@ for grp in "${uniq_groups[@]}"; do
     items+=("")
 done
 
-selection="$(printf '%s\n' "${items[@]}" | fzf --ansi --prompt="Select: " --delimiter=$'\t' --with-nth=1 --preview-window=down:3:wrap --preview='c=$(echo {} | cut -f2); d=$(echo {} | cut -f3); [ -n "$c" ] && printf "%s\n\n%s\n" "$(echo "$c" | base64 -d)" "$d"')"
+selection="$(printf '%s\n' "${items[@]}" | fzf --ansi --prompt="Select: " --delimiter=$'\t' --with-nth=1 --preview-window=down:3:wrap --preview='c=$(echo {} | cut -f2); d=$(echo {} | cut -f3); [ -n "$c" ] && printf "%s\n\n%s\n"  | base64 -d)" "$d"')"
 cmd="$(echo "$selection" | cut -f2 | base64 --decode)"
 [ -z "$cmd" ] && exit 0
 
