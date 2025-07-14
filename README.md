@@ -12,9 +12,15 @@ Loads every `*.yml` in the current directory, shows them in a grouped menu, and 
 ## Install
 
 ```bash
+curl -sSf https://raw.githubusercontent.com/Mgldvd/ww/main/install.sh | bash
+```
+
+## Play wiout install
+
+```bash
 git clone https://github.com/yourname/ww.git
 cd ww
-sudo ./install.sh
+sudo ./ww
 ```
 
 ## Usage

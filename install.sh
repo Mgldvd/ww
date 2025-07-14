@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
-# install wiwi as `ww` and place YAML in ~/.config/ww
+# install ww CLI from GitHub and place configs in ~/.config/ww
 
 set -euo pipefail
 
-TARGET_BIN="/usr/local/bin/ww"
-CONFIG_DIR="$HOME/.config/ww"
+repo="Mgldvd/ww"
+branch="main"
+bin="/usr/local/bin/ww"
+cfg="$HOME/.config/ww"
+tmp="$(mktemp -d)"
 
-sudo install -m755 ww "$TARGET_BIN"
-mkdir -p "$CONFIG_DIR"
-cp -n *.yml "$CONFIG_DIR" 2>/dev/null || true
+curl -Ls "https://github.com/${repo}/archive/${branch}.tar.gz" | tar -xz -C "$tmp" --strip-components=1
+sudo install -m755 "$tmp/ww" "$bin"
+mkdir -p "$cfg"
+cp -n "$tmp"/commands.d/*.yml "$cfg"/
+rm -rf "$tmp"
 
-echo "Installed. Put more .yml files in $CONFIG_DIR or run ww in directories containing them."
+printf "\n\e[32m✔ ww CLI installed at %s\e[0m\n" "$bin"
+printf "↳ YAML configuration files copied to %s\n" "$cfg"
+printf "Run \e[1mww\e[0m anywhere or add extra *.yml files to that directory for custom commands.\n"
